@@ -14,9 +14,9 @@
 			};
 		}
 		
+		//setting defaults
 		options = $.extend({}, {
 			id : 'qrcode_canvas',
-			render : "canvas",
 			width : 400,
 			height : 400,
 			typeNumber : -1,
@@ -43,11 +43,13 @@
 				switch (this.shape) {
 					case 'rect':
 						canvas.drawRect({
-							  fillStyle: this.fill,
-							  x: this.x, y: this.y,
-							  width: this.w+modifier,
-							  height: this.h+modifier,
-							  fromCenter: false
+							layer : true,
+							name : 'qr_code',
+							fillStyle: this.fill,
+							x: this.x, y: this.y,
+							width: this.w+modifier,
+							height: this.h+modifier,
+							fromCenter: false
 							});
 						
 						break;
@@ -64,6 +66,8 @@
 					case 'rounded':
 						var random_degrees = Math.floor(Math.random() * 32) - 16;
 						canvas.drawRect({
+							layer : true,
+							name : 'qr_code',
 							fillStyle: this.fill,
 							x: this.x, y: this.y,
 							width: this.w-modifier,
@@ -90,19 +94,24 @@
 			this.canvas_dom = this.canvas[0];
 			this.width 	= options.width;
 			this.height = options.height;
-			//this.ctx 	= this.canvas.getContext('2d');
 			
 			this.redrawn	= false; // when set to false, the canvas will redraw everything
 			this.modules 	= []; // the collection of things to be drawn
 			this.images 	= [];
+			this.toplayer	= false;
 			
 			this.interval = 100;
+			
+			this.dragging = false;
 			
 			var myFrame 	= this;
 			
 			setInterval(function() {
 				myFrame.draw();
 			}, myFrame.interval);
+
+			//binding events
+			this.canvas.on('click', function(e){myFrame.mouseDown(e);});
 		};
 		
 		CanvasFrame.prototype = {
@@ -210,6 +219,7 @@
 				},
 				
 				mouseDown : function(e){
+					console.log(e);
 					var mouse 	= this.getMouse(e);
 					var mx 		= mouse.x;
 					var my 		= mouse.y;
@@ -232,6 +242,23 @@
 					console.log('clicked on canvas ', mouse);
 				},
 				
+				addLayer : function(e){
+					this.canvas.addLayer({
+						type: "rectangle",
+						name: 'testato',
+						fillStyle: "#585",
+						x: 180, y: 180,
+						width: 100, height: 50
+						});
+					this.canvas.drawLayers();
+					this.toplayer = true;
+				},
+				
+				decode : function(e)
+				{
+					
+				},
+				
 		};
 		
 		var CanvasLayer = function () {
@@ -239,9 +266,6 @@
 		};
 		
 		canvasFrame = new CanvasFrame($(this));
-		
-		 //binding events
-		this.bind('click', function(e){canvasFrame.mouseDown(e);});
 		
 		return canvasFrame;
 	};
