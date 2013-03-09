@@ -15,16 +15,28 @@
 	<div id="qrcodeCanvas"></div>
 	<div id="save_image"><a href="">Save Image</a></div>
 	<div id="qrlog"><a href="">log qr data</a></div>
+	<div id="qrread"><a href="">read qr data</a></div>
 	<img id="qrcodeImage" alt="qrcode" name="qrcode" />
 	
-	<script type="text/javascript" src="assets/js/lib/jquery-1.9.0.min.js"></script>
+	<script type="text/javascript" src="assets/js/lib/jquery-1.9.1.min.js"></script>
 	<script type="text/javascript" src="assets/js/lib/jcanvas.js"></script>
 	<script type="text/javascript" src="assets/js/lib/qrcode2.js"></script>
 	<script type="text/javascript" src="assets/js/lib/jquery.qrcode3.js"></script>
+	<script type="text/javascript" src="assets/js/lib/qrdecode.lib.min.js"></script>
 	<script type="text/javascript">
-	
+	function to_image(image_canvas, image_container) {
+// 		image_canvas.getContext('2d');
+// 		image_container.attr("src", image_canvas.toDataURL('image/png'));
+		image_container.attr("src", image_canvas.getCanvasImage("png"));
+		//Canvas2Image.saveAsPNG(image_canvas);
+	}
 	$(document).ready(function(){
-		var frame =$('#qrcodeCanvas').qrcode();
+		var canvas_id = "qr_canvas";
+		console.log(canvas_id);
+		var frame = $('#qrcodeCanvas').qrcode( {
+						id : canvas_id
+					});
+		
 		frame.createCode('pera lazic');
 		
 		$("#qrcode_content").keypress(function(e){
@@ -34,7 +46,27 @@
 					frame.createCode($(this).val());
 		        }
 			});
+
+		$('#save_image a').click(function(e){
+			e.preventDefault();
+			canvas = $("#"+canvas_id);
+			to_image(canvas, $('#qrcodeImage'));
 		});
+		
+		$('#qrlog a').click(function(e){
+			e.preventDefault();
+			console.log('adding layer');
+			frame.addLayer();
+// 			to_image(canvas, $('#qrcodeImage'));
+		});
+		
+		$('#qrread a').click(function(e){
+			e.preventDefault();
+			console.log('reading qr code');
+			qrdecode.debug = false;
+			console.log(qrdecode.decode2($("#"+canvas_id)[0]));
+		});
+	});
 	</script>
 </body>
 </html>
