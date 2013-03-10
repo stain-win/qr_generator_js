@@ -12,7 +12,7 @@
 			options = {
 				text : options
 			};
-		}
+		};
 		
 		//setting defaults
 		options = $.extend({}, {
@@ -36,6 +36,8 @@
 		};
 
 		Module.prototype = {
+			//performance issues force to use drawRect for each module
+			//if used with addLayer execution time is 4 times longer
 			draw : function(canvas) {
 				//needs to fill gaps between tiles :(
 				modifier 		= 0.2;
@@ -51,7 +53,6 @@
 							height: this.h+modifier,
 							fromCenter: false
 							});
-						
 						break;
 					case 'round':
 //						var radius = this.w/2-modifier;
@@ -90,6 +91,7 @@
 		};
 		
 		var CanvasFrame = function(canvas) {
+			this.debug	= true;
 			this.canvas = (!(canvas instanceof HTMLCanvasElement)) ? this.createCanvas(canvas) : canvas;
 			this.canvas_dom = this.canvas[0];
 			this.width 	= options.width;
@@ -99,10 +101,13 @@
 			this.modules 	= []; // the collection of things to be drawn
 			this.images 	= [];
 			this.toplayer	= false;
+
+			this.image_layer = new ImageLayer(this.canvas);
 			
-			this.interval = 100;
+			this.interval = 30;
 			
-			this.dragging = false;
+			this.dragging 	= false;
+			this.dragged	= false;
 			
 			var myFrame 	= this;
 			
@@ -111,7 +116,31 @@
 			}, myFrame.interval);
 
 			//binding events
-			this.canvas.on('click', function(e){myFrame.mouseDown(e);});
+			this.canvas.on('mousedown', function(e){
+				myFrame.dragging = true;
+			});
+			
+			this.canvas.on('mouseup', function(e){
+				if(!myFrame.dragged){
+					//needs refactor :)
+					myFrame.mouseDown(e);
+				}
+				myFrame.dragging = false;
+				myFrame.dragged  = false;
+			});
+			this.canvas.on('mousemove', function(e){
+				if(myFrame.dragging)
+				{
+					myFrame.dragged = true;
+					if(myFrame.image_layer.canvas.getLayer('top_image_layer')){
+						mouse = myFrame.getMouse(e);
+						myFrame.image_layer.canvas.setLayer("top_image_layer", {
+ 							x: mouse.x, y: mouse.y
+						})
+						.drawLayers();
+					}
+				}
+			});
 		};
 		
 		CanvasFrame.prototype = {
@@ -141,8 +170,10 @@
 				},
 				
 				draw : function () {
+					
 					if(!this.redrawn)
 					{
+						var start = new Date().getTime();
 						this.clear();
 						var modules_len = this.modules.length;
 						console.log('start to draw');
@@ -166,18 +197,26 @@
 									var h = ((row + 1) * tileW) - (row * tileW);
 									
 									module = new Module(Math.round(col * tileW), Math.round(row * tileH), w, h, fillStyle);
-									module.shape = 'rounded';
+									module.shape = 'rect';
 									module.draw(this.canvas);
 									this.addModule(module);
 								}
 							}
+						//	this.canvas.drawLayers();
 						} else {
 							console.log('draw existing modules');
 							for ( var i = 0; i < modules_len; i++) {
 								this.modules[i].draw(this.canvas);
 							}
+							if(this.toplayer){
+								this.canvas.drawLayer('top_image_layer');
+							}
 						}
 						this.redrawn = true;
+						var end = new Date().getTime();
+						if(this.debug){
+							console.log('exec time ', end-start);
+						}
 					} else {
 //						console.log('did not draw');
 					}
@@ -226,7 +265,7 @@
 					var modules = this.modules;
 					
 					var modules_len = modules.length || 0;
-					
+					console.log("clicked image",this.image_layer.clicked);
 					for ( var i = modules_len - 1; i >= 0; i--) {
 						if (modules[i].contains(mx, my)) {
 							var mySel = modules[i];
@@ -243,15 +282,26 @@
 				},
 				
 				addLayer : function(e){
-					this.canvas.addLayer({
-						type: "rectangle",
-						name: 'testato',
-						fillStyle: "#585",
-						x: 180, y: 180,
-						width: 100, height: 50
-						});
-					this.canvas.drawLayers();
-					this.toplayer = true;
+					this.image_layer.x = Math.round(this.width/2);
+					this.image_layer.y = Math.round(this.height/2);
+					this.image_layer.w = 200;
+					this.image_layer.h = 200;
+
+					if(!this.toplayer){
+						this.image_layer.addImageLayer('top_image_layer');
+						this.toplayer = true;
+					} else {
+						//prevent layer doubling, first remove old layer data
+						this.image_layer.removeImageLayer('top_image_layer');
+						this.image_layer.addImageLayer('top_image_layer');
+						this.toplayer = true;
+					}
+				},
+
+				removeLayer : function() {
+					if(this.toplayer){
+						this.image_layer.removeImageLayer('image_layer');
+					}
 				},
 				
 				decode : function(e)
@@ -261,8 +311,54 @@
 				
 		};
 		
-		var CanvasLayer = function () {
-			
+
+		var ImageLayer = function (canvas) {
+			this.canvas = canvas;
+			this.layer 	= 'front';
+			this.drawn	= false;
+			this.x 		= 0;
+			this.y 		= 0;
+			this.w 		= 0;
+			this.h 		= 0;
+
+			this.clicked = false;
+
+			this.covering_surface = [];
+			// var image_layer = this;
+		};
+
+		ImageLayer.prototype = {
+			addImageLayer : function(layer_name){
+				console.log('drawing image layer', this.drawn);
+				this.canvas.addLayer({
+					method: "drawImage",
+					source: $("#uploaded_img")[0],
+					name: layer_name,
+					//draggable: true,
+					x: this.x, y: this.y,
+					width: this.canvas.width()/2, height: this.canvas.height()/2,
+					mousedown: function(layer){
+						console.log('mousedown ',qrcode);
+						}
+					});
+				this.canvas.drawLayers();
+			},
+
+			removeImageLayer : function(layer_name){
+				console.log('removing layer');
+				this.canvas.removeLayer(layer_name).drawLayers();
+			},
+			//find area of non transparent pixels of top_layer_image
+			coveringSurface : function(layer_name){
+				// console.log('canvas data', this.canvas.getCanvasData());
+				this.canvas.animateLayer(layer_name, {
+  					rotate: "+=360"
+				});
+				layer = this.canvas.getLayer(layer_name);
+				var br = 0;
+				console.log('making negative', layer);
+				//this.canvas.getLayer(layer_name).canvas.getContext("2d").getImageData(this.x,this.y,this.w,this.h)
+			}
 		};
 		
 		canvasFrame = new CanvasFrame($(this));
