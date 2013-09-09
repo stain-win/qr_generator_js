@@ -1113,7 +1113,7 @@ QRRSBlock.getRsBlockTable = function(typeNumber, errorCorrectLevel) {
 }
 
 // ---------------------------------------------------------------------
-// QRBitBuffer
+// QRBitBuffer 
 // ---------------------------------------------------------------------
 
 function QRBitBuffer() {
